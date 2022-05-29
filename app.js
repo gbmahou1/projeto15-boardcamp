@@ -107,7 +107,112 @@ app.post('/games', async (req, res) => {
     }  
 })
 
+app.get('/customers', async (req, res) => {
+    try
+    {
+        const queryCpf = req.query.cpf;
+        let customers
+        if (queryCpf)
+        {
+            customers = await connection.query(`SELECT * FROM customers WHERE cpf LIKE $1`, [`${queryCpf}%`]);
+        }
+        else
+        {
+            customers = await connection.query('SELECT * FROM customers');
+        }
+        res.send(customers.rows)
+    }
+    catch(error)
+    {
+        res.status(500).send(error)
+    }
+})
 
+app.get('/customers/:id', async (req, res) => {
+    try
+    {
+        const id = req.params.id;
+        const customers = await connection.query('SELECT * FROM customers WHERE id=$1', [id])
+        if ( customers.rows.length === 0 )
+        {
+            return res.sendStatus(404);
+        }
+        return res.send(customers.rows)
+    }
+    catch(error)
+    {
+        res.status(500).send(error)
+    }
+})
+
+app.post('/customers', async (req, res) => {
+    try
+    {
+        let { name, phone, cpf, birthday } = req.body;
+        const customerSchema = joi.object({
+            name: joi.string().required(),
+            phone: joi.string().pattern(/^[0-9]{10,11}$/).required(),
+            cpf: joi.string().pattern(/^[0-9]{11}$/).required(),
+            birthday: joi.date().required()
+        });
+        const customer = {name, phone, cpf, birthday};
+        const validation = customerSchema.validate(customer);
+        if (validation.error)
+        {
+            return res.sendStatus(400)
+        }
+        const userWithBodyCpf = await connection.query('SELECT * FROM customers WHERE cpf=$1', [cpf]);
+        if ( userWithBodyCpf.rows.length != 0)
+        {
+            return res.sendStatus(409)
+        }
+        await connection.query(`
+        INSERT INTO
+        customers (name, phone, cpf, birthday)
+        VALUES ($1, $2, $3, $4)`,
+        [name, phone, cpf, birthday]);
+        return res.sendStatus(201)
+    }
+    catch(error)
+    {
+        res.status(500).send(error)
+    }
+})
+
+app.put('/customers/:id', async (req, res) => {
+    try
+    {
+        const id = req.params.id;
+        let { name, phone, cpf, birthday } = req.body;
+        const customerSchema = joi.object({
+            name: joi.string().required(),
+            phone: joi.string().pattern(/^[0-9]{10,11}$/).required(),
+            cpf: joi.string().pattern(/^[0-9]{11}$/).required(),
+            birthday: joi.date().required()
+        });
+        const customer = {name, phone, cpf, birthday};
+        const validation = customerSchema.validate(customer);
+        if (validation.error)
+        {
+            return res.sendStatus(400)
+        }
+        const userWithBodyCpf = await connection.query('SELECT * FROM customers WHERE cpf=$1', [cpf]);
+        if ( userWithBodyCpf.rows.length != 0)
+        {
+            return res.sendStatus(409)
+        }
+        await connection.query(`
+        UPDATE
+        customers SET name=$1, phone=$2, cpf=$3, birthday=$4
+        WHERE id=$5`,
+        [name, phone, cpf, birthday, id]);
+        return res.sendStatus(200);
+    }
+    catch(error)
+    {
+        res.status(500).send(error)
+    }
+})
 
 app.listen(port);
 
