@@ -53,5 +53,61 @@ app.post('/categories', async (req, res) => {
     }  
 })
 
+app.get('/games', async (req, res) => {
+    try
+    {
+        const queryName = req.query.name;
+        let games
+        if (queryName)
+        {
+            games = await connection.query(`
+            SELECT games.*, categories.name as "categoryName" FROM games 
+            JOIN categories ON games."categoryId"=categories.id 
+            WHERE games.name LIKE $1`, 
+            [`${queryName}%`]);
+        }
+        else
+        {
+            games = await connection.query(`SELECT games.*, categories.name as "categoryName" FROM games 
+            JOIN categories ON games."categoryId"=categories.id`);
+        }
+        res.send(games.rows)
+    }
+    catch(error)
+    {
+        res.status(500).send(error)
+    }     
+})
+
+app.post('/games', async (req, res) => {
+    try
+    {
+        let { name, image, stockTotal, categoryId, pricePerDay } = req.body;
+        let stockTotalInt = parseInt(stockTotal);
+        pricePerDay = parseInt(pricePerDay);
+        if (!name || stockTotalInt <= 0 || pricePerDay <= 0 || !stockTotalInt || !pricePerDay)
+        {
+            return res.sendStatus(400);
+        }
+        const gamesWithBodyName = await connection.query('SELECT * FROM games WHERE name=$1', [name]);
+        if (gamesWithBodyName.rows.length != 0) 
+        {
+            return res.sendStatus(409);
+        }
+        await connection.query(`
+        INSERT INTO
+        games (name, image, "stockTotal", "categoryId", "pricePerDay")
+        VALUES ($1, $2, $3, $4, $5)`,
+        [name, image, stockTotal, categoryId, pricePerDay]);                                   
+        return res.sendStatus(201);
+    }
+    catch(error)
+    {
+        res.status(500).send(error)
+    }  
+})
+
+
+
 app.listen(port);
 
